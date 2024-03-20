@@ -59,3 +59,7 @@ O Data Logger baseado na plataforma Arduino UNO R3 foi desenvolvido para monitor
 ## 9. Segurança
 - Este dispositivo contém componentes eletrônicos sensíveis. Evite exposição a choques mecânicos ou eletricidade estática.
 - Não opere o equipamento em condições ambientais extremas que possam comprometer sua integridade ou funcionalidade.
+
+# Diagrama Elétrico
+
+![Diagrama Elétrico](https://github.com/ArthurFariasds/DataLogger/blob/main/IMG_0808.jpeg)
