@@ -59,6 +59,7 @@ O Data Logger baseado na plataforma Arduino UNO R3 foi desenvolvido para monitor
 ## 9. Segurança
 - Este dispositivo contém componentes eletrônicos sensíveis. Evite exposição a choques mecânicos ou eletricidade estática.
 - Não opere o equipamento em condições ambientais extremas que possam comprometer sua integridade ou funcionalidade.
+- É disponibilizado no monitor serial o resultado também em formato de hash criptográfico, SHA256. Neste sistema, mensagens de tamanho variável são aceitas como entrada e então é produzida uma saída de tamanho fixo. Foi criado um array de bytes hash com tamanho 32 e um objeto SHA256 para realizar a criptografia hash em SHA-256.
 
 # Diagrama Elétrico
 
