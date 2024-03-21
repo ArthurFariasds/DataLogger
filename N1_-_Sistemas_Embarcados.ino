@@ -220,19 +220,24 @@ void setup() {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); //CAPTURA A DATA E HORA EM QUE O SKETCH É COMPILADO
     //rtc.adjust(DateTime(2018, 9, 29, 15, 00, 45)); //(ANO), (MÊS), (DIA), (HORA), (MINUTOS), (SEGUNDOS)
  }
- 
+
+  //CONFIGURAÇÃO DO SENSOR DHT
   dhtSensor.setup(PIN_DHT, DHTesp::DHT11);
+
+  //CONFIGURAÇÃO DOS PINOS DO BUZZER, BOTÃO DE LOG E SENSOR DE LUMINOSIDADE
   pinMode(PIN_BZR, OUTPUT);
   pinMode(BTN_LOG, INPUT_PULLUP);
   pinMode(PIN_LDR, INPUT);
   lcd.init();
   lcd.backlight();
-  // Exibe o logo/slogan da empresa no LCD
+  
+  //EXIBE O LOGO DA EMPRESA NO LCD
   lcd.setCursor(6, 0);
   lcd.print("LEMA");
   lcd.setCursor(0, 1);
   //lcd.print("Slogan aqui");
 
+  //REPRESENTANDO UM PACMAN
   lcd.createChar(1, pacman);
   lcd.createChar(2, dot);
   for (int i = 0; i < 16; i++) {
@@ -252,37 +257,42 @@ void setup() {
 
   delay(2000); // Aguarda 2 segundos
 
-  // Limpa o LCD
+  //LIMPA O LCD
   lcd.clear();
 }
 
 void loop() {
   unsigned long currentMillis = millis();
 
+  //VERIFICA SE O BOTÃO DE LEITURA DE LOGS FOI PRESSIONADO
   if(digitalRead(BTN_LOG) == LOW){
     readFromEEPROM();
   }
 
   delay(10);
+
+  //LEITURA DA TEMPERATURA, UMIDADE E LUMINOSIDADE DO SENSOR DHT
   TempAndHumidity data = dhtSensor.getTempAndHumidity();
   float temperature = data.temperature;
   float humidity = data.humidity;
   int ldrValue = analogRead(PIN_LDR);
 
-  // Incrementa somente se as leituras forem válidas
+  //INCREMENTA SOMENTE SE AS LEITURAS FOREM VÁLIDAS
   if (!isnan(temperature) && !isnan(humidity)) {
     totalTemperature += temperature;
     totalHumidity += humidity;
     readingsCount++;
   }
 
-  // Read light intensity (lux)
   int analogValue = analogRead(PIN_LDR);
   int intensidadeLuz = map(analogValue, 0, 1023, 0, 100);
   
   totalLux += intensidadeLuz;
 
+  //VERIFICA AS CONDIÇÕES PARA ATIVAR O ALARME E FAZER LOG
   if(currentMillis < 60000){
+
+    //EXIBE DADOS NO LCD
     lcd.setCursor(0, 0);
     lcd.print("T:");
     lcd.print(temperature);
@@ -298,22 +308,19 @@ void loop() {
     lcd.print(intensidadeLuz);
     lcd.print("%           ");
 
+    
     if (temperature > 25 || temperature < 15 || humidity > 50 || humidity < 30 || intensidadeLuz > 30 || intensidadeLuz < 0) {
 
+      //CONFIGURA O ALARME DO BUZZER
       int size = sizeof(durations) / sizeof(int);
     
       for (int note = 0; note < size; note++) {
-        //to calculate the note duration, take one second divided by the note type.
-        //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
         int duration = 1000 / durations[note];
         tone(PIN_BZR, melody[note], duration);
-    
-        //to distinguish the notes, set a minimum time between them.
-        //the note's duration + 30% seems to work well:
         int pauseBetweenNotes = duration * 1.30;
         delay(pauseBetweenNotes);
         
-        //stop the tone playing:
+        //PARA O ALARME
         noTone(PIN_BZR);
       }
       
@@ -321,18 +328,19 @@ void loop() {
       digitalWrite(PIN_SWITCH1, HIGH);
       pinMode(PIN_SWITCH2, OUTPUT);
       digitalWrite(PIN_SWITCH2, LOW);
+      // VERIFICA QUAL PARAMETRO ESTÁ DIVERGENTE PARA GRAVAR UMA MENSAGEM NA LOG
       if (currentMillis - lastLogTime >= logInterval) {
         String message = "";
         if (temperature > 25 || temperature < 15){
-          message += "T";
+          message += "T"; // T PARA TEMPERATURA
         }
         if(humidity > 50 || humidity < 30 ){
-          message += "H";
+          message += "H"; // H PARA UMIDADE
         }
         if(intensidadeLuz > 30 || intensidadeLuz < 0){
-          message += "L";
+          message += "L"; // L PARA LUMINOSIDADE
         }
-        logToEEPROM(message.c_str());
+        logToEEPROM(message.c_str()); // MANDA PARA O LOG
         lastLogTime = currentMillis;
       } 
     } 
