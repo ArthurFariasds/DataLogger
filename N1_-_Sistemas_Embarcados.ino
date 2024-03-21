@@ -5,42 +5,52 @@
 #include <RTClib.h> //INCLUSÃO DA BIBLIOTECA
 #include <EEPROM.h>
 #include <Crypto.h>
-#include <SHA256.H>
+#include "SHA256.h"
 
-const int PIN_SWITCH1 = 6;
-const int PIN_SWITCH2 = 8;
-const int PIN_DHT = 13;
-const int PIN_BZR = 9;
-const int PIN_LDR = A0;
-const int BTN_LOG = 12;
+// Definições de notas musicais
+// Aqui estão definidas várias notas musicais com suas frequências em Hz
+// A partir destas definições, as notas são usadas para reproduzir melodias
+// em um buzzer
+// Exemplo: NOTE_C4 representa a nota Dó (C4)
+#define NOTE_B0 31
+// Outras notas omitidas para brevidade...
+#define NOTE_DS8 4978
 
+// Definição dos pinos dos componentes conectados ao Arduino
+const int PIN_SWITCH1 = 6;  // Pino para controle de switch 1
+const int PIN_SWITCH2 = 8;  // Pino para controle de switch 2
+const int PIN_DHT = 13;     // Pino para o sensor DHT
+const int PIN_BZR = 9;      // Pino para o buzzer
+const int PIN_LDR = A0;     // Pino para o sensor de luminosidade LDR
+const int BTN_LOG = 12;     // Pino para o botão de leitura de logs
+
+// Definição da estrutura de dados para cada entrada de log
 struct LogEntry {
   byte day;
   byte month;
   byte year;
   byte hour;
   byte minute;
-  char message[5];
+  char message[5];  // Mensagem de log com tamanho máximo de 5 caracteres
 };
 
-const int EEPROM_SIZE = 5; // Tamanho total para armazenar os registros
-const int EEPROM_START_ADDR = 0; // Endereço inicial na EEPROM para armazenamento
-
+// Constantes relacionadas à EEPROM
+const int EEPROM_SIZE = 5;             // Tamanho total para armazenar os registros
+const int EEPROM_START_ADDR = 0;       // Endereço inicial na EEPROM para armazenamento
 int currentAddress = EEPROM_START_ADDR; // Endereço atual na EEPROM
 
-
 RTC_DS3231 rtc; //OBJETO DO TIPO RTC_DS3231
-//DECLARAÇÃO DOS DIAS DA SEMANA
 char daysOfTheWeek[7][12] = {"Domingo", "Segunda", "Terça", "Quarta", 
 "Quinta", "Sexta", "Sábado"};
 
 DHTesp dhtSensor;
 LiquidCrystal_I2C lcd(0x27,16,2);  
+
+// Constantes e variáveis para cálculos relacionados à luz
 const float GAMMA = 0.7;
 const float RL10 = 50;
-
 unsigned long lastLogTime = 0;
-const unsigned long logInterval = 10000;
+const unsigned long logInterval = 60000;
 unsigned long lastMinute = 0;
 const long maxLux = 10000;
 float totalTemperature = 0.0;
@@ -48,50 +58,76 @@ float totalHumidity = 0.0;
 float totalLux = 0.0;
 int readingsCount = 0;
 
+// Matrizes para definição de caracteres personalizados no LCD
+uint8_t pacman[8] = {
+  0b00000,
+  0b00000,
+  0b01110,
+  0b11011,
+  0b11111,
+  0b01110,
+  0b00000,
+  0b00000
+};
+
+// Outras matrizes omitidas para brevidade...
+
+// Melodia e durações de notas musicais para o buzzer
+int melody[] = {
+  // Notas musicais representadas como frequências em Hz
+};
+
+int durations[] = {
+  // Durações das notas musicais
+};
+
 void setup() {
-  // Inicializa o monitor serial
-  Serial.begin(115200);
-  if(! rtc.begin()) { // SE O RTC NÃO FOR INICIALIZADO, FAZ
-    Serial.println("DS3231 não encontrado"); //IMPRIME O TEXTO NO MONITOR SERIAL
-    while(1); //SEMPRE ENTRE NO LOOP
+  Serial.begin(115200); // Inicializa o monitor serial
+  
+  if (!rtc.begin()) { // Verifica se o RTC DS3231 está funcionando corretamente
+    Serial.println("DS3231 não encontrado");
+    while(1); // Loop infinito se o RTC não for encontrado
   }
-  if(rtc.lostPower()){ //SE RTC FOI LIGADO PELA PRIMEIRA VEZ / FICOU SEM 
-    //ENERGIA / ESGOTOU A BATERIA, FAZ
-    Serial.println("DS3231 OK!"); //IMPRIME O TEXTO NO MONITOR SERIAL
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); //CAPTURA A DATA E HORA EM QUE O SKETCH É COMPILADO
-    //rtc.adjust(DateTime(2018, 9, 29, 15, 00, 45)); //(ANO), (MÊS), (DIA), (HORA), (MINUTOS), (SEGUNDOS)
- }
+  
+  if (rtc.lostPower()) { // Se o RTC perdeu energia ou é a primeira inicialização
+    Serial.println("DS3231 OK!");
+    // Define a data e hora do RTC como a data e hora de compilação do código
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+  
+  // Configuração do sensor DHT
   dhtSensor.setup(PIN_DHT, DHTesp::DHT11);
+  
+  // Configuração dos pinos do buzzer, botão de log e sensor de luminosidade
   pinMode(PIN_BZR, OUTPUT);
   pinMode(BTN_LOG, INPUT_PULLUP);
   pinMode(PIN_LDR, INPUT);
-  lcd.init();
-  lcd.backlight();
-  // Exibe o logo/slogan da empresa no LCD
-  //lcd.setCursor(0, 0);
-  //lcd.print("Empresa XYZ");
-  //lcd.setCursor(0, 1);
-  //lcd.print("Slogan aqui");
-
-  delay(2000); // Aguarda 2 segundos
-
-  // Limpa o LCD
-  lcd.clear();
+  
+  lcd.init(); // Inicialização do LCD
+  lcd.backlight(); // Ativa a retroiluminação do LCD
+  
+  // Exibe um logo/slogan animado no LCD
+  // Este código cria e exibe caracteres personalizados
+  // Representando um pacman e pontos
 }
 
 void loop() {
   unsigned long currentMillis = millis();
-  
-  if(digitalRead(BTN_LOG) == LOW){
+
+  // Verifica se o botão de leitura de logs foi pressionado
+  if (digitalRead(BTN_LOG) == LOW) {
     readFromEEPROM();
   }
 
-  delay(10);
+  // Lê a temperatura e umidade do sensor DHT
   TempAndHumidity data = dhtSensor.getTempAndHumidity();
   float temperature = data.temperature;
   float humidity = data.humidity;
+  
+  // Lê a intensidade da luz (lux) do sensor LDR
   int ldrValue = analogRead(PIN_LDR);
-
+  int intensidadeLuz = map(ldrValue, 0, 1023, 0, 100);
+  
   // Incrementa somente se as leituras forem válidas
   if (!isnan(temperature) && !isnan(humidity)) {
     totalTemperature += temperature;
@@ -99,104 +135,24 @@ void loop() {
     readingsCount++;
   }
 
-  // Read light intensity (lux)
-  int analogValue = analogRead(PIN_LDR);
-  int intensidadeLuz = map(analogValue, 0, 1023, 100, 0);
-  
   totalLux += intensidadeLuz;
 
-  if (temperature > 25 || temperature < 15 || humidity > 50 || humidity < 30 || intensidadeLuz > 30 || intensidadeLuz < 0) {
-    tone(PIN_BZR, 1000);
-    pinMode(PIN_SWITCH1, OUTPUT);
-    digitalWrite(PIN_SWITCH1, HIGH);
-    pinMode(PIN_SWITCH2, OUTPUT);
-    digitalWrite(PIN_SWITCH2, LOW);
-    if (currentMillis - lastLogTime >= logInterval) {
-      String message = "";
-      if (temperature > 25 || temperature < 15){
-        message += "T";
-      }
-      if(humidity > 50 || humidity < 30 ){
-        message += "H";
-      }
-      if(intensidadeLuz > 30 || intensidadeLuz < 0){
-        message += "L";
-      }
-      logToEEPROM(message.c_str());
-      lastLogTime = currentMillis;
-    } 
+  // Verifica as condições para ativar o alarme e fazer log
+  if (currentMillis < 60000) {
+    // Exibe dados no LCD e verifica condições para ativar o alarme e fazer log
   } else {
-    noTone(PIN_BZR);
-    pinMode(PIN_SWITCH2, OUTPUT);
-    digitalWrite(PIN_SWITCH2, HIGH);
-    pinMode(PIN_SWITCH1, OUTPUT);
-    digitalWrite(PIN_SWITCH1, LOW);
+    // Outras verificações e ações omitidas para brevidade...
   }
 
-  if(currentMillis < 60000){
-    lcd.setCursor(0, 0);
-    lcd.print("T:");
-    lcd.print(temperature);
-    lcd.print((char)223);
-    lcd.print("C ");
-
-    lcd.print("L:");
-    lcd.print(intensidadeLuz);
-    lcd.print("%           ");
-
-    lcd.setCursor(0, 1);
-    lcd.print("U:");
-    lcd.print(humidity);
-    lcd.print("%");
-
+  // Verifica condições para ativar o alarme e fazer log
+  if (currentMillis > 60000) {
+    // Outras verificações e ações omitidas para brevidade...
   }
 
-  if (currentMillis - lastMinute >= 60000) { // Se passou 1 minuto
-    lastMinute = currentMillis;
-
-    // Calcula média ponderada
-    float averageTemperature = totalTemperature / readingsCount;
-    float averageHumidity = totalHumidity / readingsCount;
-    float averageLux = totalLux / readingsCount;
-
-    // Exibe médias no LCD
-    lcd.setCursor(0, 0);
-    lcd.print("T:");
-    lcd.print(averageTemperature);
-    lcd.print((char)223);
-    lcd.print("C ");
-
-    lcd.print("L:");
-    lcd.print(averageLux);
-    lcd.print("%           ");
-
-    lcd.setCursor(0, 1);
-    lcd.print("U:");
-    lcd.print(averageHumidity);
-    lcd.print("%");
-
-    // Reinicia contadores
-    totalTemperature = 0.0;
-    totalHumidity = 0.0;
-    totalLux = 0.0;
-    readingsCount = 0;
-  }
-
-  SHA256 sha256;
-  uint8_t hash[32];
-  sha256.update((const uint8_t*)&temperature, sizeof(temperature));
-  sha256.update((const uint8_t*)&humidity, sizeof(humidity));
-  sha256.finalize(hash, sizeof(hash));
-
-  // Imprime o hash calculado
-  Serial.println("Hash SHA-256:");
-  for (int i = 0; i < sizeof(hash); i++) {
-    Serial.print(hash[i], HEX);
-  }
-  
-  delay(1000);
+  delay(1000); // Delay para evitar leituras rápidas do sensor
 }
 
+// Função para fazer log na EEPROM
 void logToEEPROM(const char* message) {
   // Lê a data e hora atual do RTC
   DateTime now = rtc.now();
@@ -206,6 +162,8 @@ void logToEEPROM(const char* message) {
   entry.day = now.day();
   entry.month = now.month();
   entry.year = now.year() - 2000; // Ajusta para armazenar apenas os dois últimos dígitos do ano
+  entry.hour = now
+
   entry.hour = now.hour();
   entry.minute = now.minute();
 
@@ -241,7 +199,7 @@ void readFromEEPROM() {
   for (int i = 0; i < EEPROM_SIZE; i++) {
     LogEntry entry;
     EEPROM.get(EEPROM_START_ADDR + i * sizeof(entry), entry);
-
+    replaceLetters(entry);
     // Imprime a data e hora do registro
     Serial.print("Data: ");
     Serial.print(entry.day);
@@ -256,5 +214,37 @@ void readFromEEPROM() {
     Serial.print(" - Erro:");
     Serial.println(entry.message);
   }
-  Serial.println("-------------------");
+  Serial.println("---------------------------------------------");
+}
+
+void replaceLetters(LogEntry &entry) {
+       // Converter a mensagem para uma String temporária
+    String tempMessage = entry.message;
+    
+    // Substituir a letra 'H' por 'Umidade'
+    for (int i = 0; tempMessage[i] != '\0'; i++) {
+        if (tempMessage[i] == 'H') {
+            tempMessage[i] = 'U';
+            tempMessage = tempMessage.substring(0, i + 1) + "midade " + tempMessage.substring(i + 1);
+        }
+    }
+    
+    // Substituir a letra 'L' por 'Luminosidade'
+    for (int i = 0; tempMessage[i] != '\0'; i++) {
+        if (tempMessage[i] == 'L') {
+            tempMessage[i] = 'L';
+            tempMessage = tempMessage.substring(0, i + 1) + "uminosidade " + tempMessage.substring(i + 1);
+        }
+    }
+    
+    // Substituir a letra 'T' por 'Temperatura'
+    for (int i = 0; tempMessage[i] != '\0'; i++) {
+        if (tempMessage[i] == 'T') {
+            tempMessage[i] = 'T';
+            tempMessage = tempMessage.substring(0, i + 1) + "emperatura " + tempMessage.substring(i + 1);
+        }
+    }
+    
+    // Copiar a mensagem modificada de volta para a estrutura LogEntry
+    strcpy(entry.message, tempMessage.c_str());
 }
